@@ -8,7 +8,7 @@ import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestPr
 
 import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
-import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { addFundingSource, createDwollaCustomer, getDwollaCustomer } from "./dwolla.actions";
 
 const {
   APPWRITE_DATABASE_ID: DATABASE_ID,
@@ -17,6 +17,7 @@ const {
 } = process.env;
 
 export const getUserInfo = async ({ userId }: getUserInfoProps) => {
+
   try {
     const { database } = await createAdminClient();
 
@@ -67,16 +68,26 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       `${firstName} ${lastName}`
     );
 
-    if(!newUserAccount) throw new Error('Error creating user')
+    if(!newUserAccount) throw new Error('Error creating user');
 
-    const dwollaCustomerUrl = await createDwollaCustomer({
-      ...userData,
-      type: 'personal'
-    })
+    const customer = await getDwollaCustomer(newUserAccount.email);
+    
+    let dwollaCustomerUrl;
+    let dwollaCustomerId;
 
-    if(!dwollaCustomerUrl) throw new Error('Error creating Dwolla customer')
-
-    const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
+    if (customer) {
+      dwollaCustomerUrl = customer._links.self.href;
+      dwollaCustomerId = customer.id;
+    } else {
+      dwollaCustomerUrl = await createDwollaCustomer({
+        ...userData,
+        type: 'personal'
+      })
+  
+      if(!dwollaCustomerUrl) throw new Error('Error creating Dwolla customer')
+  
+      dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
+    }
 
     const newUser = await database.createDocument(
       DATABASE_ID!,
@@ -256,7 +267,7 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
     return parseStringify(banks.documents);
   } catch (error) {
-    console.log(error)
+    console.log({ error })
   }
 }
 

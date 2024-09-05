@@ -63,6 +63,29 @@ export const createDwollaCustomer = async (
   }
 };
 
+export const getDwollaCustomer = async (
+  email: string
+) => {
+  try {
+
+    return dwollaClient
+      .get("customers")
+      .then((res) => {
+
+        if (res.body.total) {
+          const customer = res.body._embedded.customers.find(
+            (element: any) => element.email === email
+          );
+          
+          return customer;
+        }
+      });
+
+  } catch (err) {
+    console.error("Creating a Dwolla Customer Failed: ", err);
+  }
+};
+
 export const createTransfer = async ({
   sourceFundingSourceUrl,
   destinationFundingSourceUrl,
